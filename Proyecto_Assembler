@@ -243,8 +243,6 @@ start:
         call limpiar_pantalla
         mov dx, offset error
         call puts
-
-        call delay_text
         mov ax, 4c00h
         int 21h ; terminado, volver a dos    
         
