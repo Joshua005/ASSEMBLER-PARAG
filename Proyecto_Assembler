@@ -5,11 +5,17 @@
     LF equ 10d 
     
 .data    
-
+    
+    ;ARRAY---------------------------------------------------------------------
     resp1 db 80 dup (0)
     random_num dw 0 ; variable para almacenar el numero aleatorio             
-    random_cadena db 80 dup(0) ; Espacio para almacenar la cadena generada  
-    temp_text dw 100 
+    random_cadena db 80 dup(0) ; Espacio para almacenar la cadena generada
+    leng_lista dw 5  
+    
+    ;TIEMPO--------------------------------------------------------------------
+    temp_text dw 100  
+    
+    ;MENSAJES------------------------------------------------------------------
     MENSAJE DB 'NIVEL 1',13,10,'$'
     ERROR DB 'PERDISTE $'
     
@@ -145,7 +151,7 @@ start:
         ret
         
         
-    PUTS:
+    puts:
         push ax ; guarda ax
         push bx ; guarda bx
         push cx ; guarda cx
@@ -205,7 +211,7 @@ start:
         push si
         push di
 
-        mov cx, 10    ; Tamanho de la cadena (puedes cambiar este valor)
+        mov cx, leng_lista   ; Tamanho de la cadena (puedes cambiar este valor)
         lea di, random_cadena ; Carga la direcciÃ³n donde se almacenarÃ¡ la cadena
 
     generar_numero:
@@ -243,6 +249,7 @@ start:
         call limpiar_pantalla
         mov dx, offset error
         call puts
+
         mov ax, 4c00h
         int 21h ; terminado, volver a dos    
         
