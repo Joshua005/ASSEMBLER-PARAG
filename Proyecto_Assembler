@@ -21,13 +21,6 @@
     NIVEL DB '1', 0 
     ERROR DB 'PERDISTE $'
     
-    
-    
-;   random_char db 0          ; Para guardar el caracter aleatorio generado
-;   random_chain db 80 dup(0) ; Cadena de caracteres aleatorios, maximo 80
-;   chain_length dw 10        ; Longitud de la cadena aleatoria 
-;   preg1 db 'hola*rojo*perro', 0        
-    
 .code       
 
 start:  
