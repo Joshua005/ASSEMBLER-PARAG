@@ -32,21 +32,15 @@
 
 start:  
     mov ax, @data
-    mov ds, ax
+    mov ds, ax     
+    
+    ; Muestra el nivel 1 en el que te encuentras
     MOV AX, OFFSET MENSAJE_NIVEL
     CALL PUT_STR
-   
+        
+    ; Realiza un salto de lista
     MOV DX, OFFSET SALTO_DL
     CALL PUTS
-;    ;Limpia pantalla
-;    call limpiar_pantalla  
-;    
-;    ;Setea el contador de indices
-;    mov SI, 0      
-;    
-;    
-;    ;Compara lo que esta en preg1 y resp1 
-;    call comparar
                   
     ; Generar la cadena aleatoria
     call crear_cadena_aleatoria 
@@ -86,90 +80,31 @@ start:
         je incrementar
         
         ;Sino
-        jmp end_program
+        jmp end_program  
+    
+    incrementar:
+        inc SI                       ; Avanza al siguiente carácter
+        cmp random_cadena[SI], 0     ; ¿Hemos llegado al final de la cadena?
+        jne comparar                 ; Si no, sigue verificando
+    
+        ; Si toda la secuencia es correcta
+        CALL LIMPIAR_PANTALLA
+        inc NIVEL                    ; Incrementa el contador de rondas
+        INC LENG_LISTA
+        mov ax, offset MENSAJE_NIVEL
+        call put_str                 ; Muestra mensaje de éxito
+       
+        CALL CREAR_CADENA_ALEATORIA  ; Genera una nueva ronda
+        MOV DX,OFFSET SALTO_DL
+        CALL PUTS
+        mov ax, offset random_cadena
+        call put_str
+        call delay_text
+        CALL LIMPIAR_PANTALLA
+        mov ax, offset resp1
+        CALL GET_STR
         
-               
-        
-    
-    
-    
-    
-    
-    
-           incrementar:
-    inc SI                       ; Avanza al siguiente carácter
-    cmp random_cadena[SI], 0     ; ¿Hemos llegado al final de la cadena?
-    jne comparar                 ; Si no, sigue verificando
-
-    ; Si toda la secuencia es correcta
-    CALL LIMPIAR_PANTALLA
-    inc NIVEL       ; Incrementa el contador de rondas
-    INC LENG_LISTA
-    mov ax, offset MENSAJE_NIVEL
-    call put_str                 ; Muestra mensaje de éxito
-   
-    CALL CREAR_CADENA_ALEATORIA             ; Genera una nueva ronda
-    MOV DX,OFFSET SALTO_DL
-    CALL PUTS
-    mov ax, offset random_cadena
-    call put_str
-    call delay_text
-    CALL LIMPIAR_PANTALLA
-    mov ax, offset resp1
-    CALL GET_STR
-    
-    CALL COMPARAR
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-  ;  
-;    incrementar:
-;          inc SI
-;          INC NIVEL
-;          INC LENG_LISTA
-;          jmp comparar    
-          
+        CALL COMPARAR
           
     put_str: ; exhibe el caracter terminado con 0 cuya direccion esta en ax
         push ax ; guarda registros
