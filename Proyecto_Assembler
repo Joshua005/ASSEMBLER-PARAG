@@ -1,0 +1,251 @@
+.model small
+.stack 256  
+
+    CR equ 13d
+    LF equ 10d 
+    
+.data    
+
+    resp1 db 80 dup (0)
+    random_num dw 0 ; variable para almacenar el numero aleatorio             
+    random_cadena db 80 dup(0) ; Espacio para almacenar la cadena generada  
+    temp_text dw 100 
+    MENSAJE DB 'NIVEL 1',13,10,'$'
+    ERROR DB 'PERDISTE $'
+    
+    
+    
+;   random_char db 0          ; Para guardar el caracter aleatorio generado
+;   random_chain db 80 dup(0) ; Cadena de caracteres aleatorios, maximo 80
+;   chain_length dw 10        ; Longitud de la cadena aleatoria 
+;   preg1 db 'hola*rojo*perro', 0        
+    
+.code       
+
+start:  
+    mov ax, @data
+    mov ds, ax
+    MOV DX, OFFSET MENSAJE
+    CALL PUTS
+;    ;Limpia pantalla
+;    call limpiar_pantalla  
+;    
+;    ;Setea el contador de indices
+;    mov SI, 0      
+;    
+;    
+;    ;Compara lo que esta en preg1 y resp1 
+;    call comparar
+                  
+    ; Generar la cadena aleatoria
+    call crear_cadena_aleatoria 
+
+    ; Mostrar la cadena aleatoria en pantalla
+    mov ax, offset random_cadena
+    call put_str
+    call delay_text
+
+    ;Limpiar pantalla
+    call limpiar_pantalla  
+    
+    ;lee lo que ingreso el usuario
+    mov ax, offset resp1      
+    call get_str   
+                      
+    ;Setea el contador de indices
+    mov SI, 0     
+    
+    ;Compara lo que esta en preg1 y resp1 
+    call comparar
+                        
+    call end_program  ; FIN DEL PROGRAMA UnU 
+    
+    comparar:         
+         
+        mov bh, random_cadena[SI] 
+        
+        mov al, bh
+        call putc  
+         
+        cmp resp1[SI], bh   
+        
+        ;si son iguales
+        je incrementar
+        
+        ;Sino
+        jmp end_program
+        
+               
+        
+    incrementar:
+          inc SI
+          jmp comparar    
+          
+          
+    put_str: ; exhibe el caracter terminado con 0 cuya direccion esta en ax
+        push ax ; guarda registros
+        push bx
+        push cx
+        push dx
+        mov bx, ax ; almacena direccion en bx
+        mov al, byte ptr [bx] ; al = primer caracter en el string
+
+    put_loop: cmp al, 0 ; al == 0 ?
+        je put_fin ; mientras al != 0
+        call putc ; exhibe caracter
+        inc bx ; bx = bx + 1
+        mov al, byte ptr [bx] ; al = siguiente caracter en el string
+        jmp put_loop ; repite la prueba del bucle           
+        
+
+    put_fin:
+        pop dx ; 
+        pop cx
+        pop bx
+        pop ax
+        ret
+
+    get_str: ;  lee el string terminado por CR dentro del arreglo cuya direccion esta en ax
+        push ax ; guarda registros
+        push bx
+        push cx
+        push dx
+        mov bx, ax
+        call getc ; lee el primer caracter
+        mov byte ptr [bx], al ; En C: str[i] = al
+
+    get_loop:
+        cmp al, 13 ; al == CR ?
+        je get_fin ;mientras al != CR
+        inc bx ; bx = bx + 1
+        call getc ; lee el siguiente caracter
+        mov byte ptr [bx], al ; In C: str[i] = al      
+        
+        jmp get_loop ; repite la prueba del bucle
+
+    get_fin: mov byte ptr [bx], 0 ; string terminado con 0
+        pop dx 
+        pop cx
+        pop bx
+        pop ax
+        ret
+    
+    putc: ; exhibe caracter en a1
+        push ax ; guarda ax
+        push bx ; guarda bx
+        push cx ; guarda cx
+        push dx ; guarda dx
+        mov dl, al
+        mov ah, 2h
+        int 21h
+        pop dx ; repone dx
+        pop cx ; repone cx
+        pop bx ; repone bx
+        pop ax ;repone ax
+        ret
+        
+        
+    PUTS:
+        push ax ; guarda ax
+        push bx ; guarda bx
+        push cx ; guarda cx
+        push dx ; guarda dx
+        mov ah, 9h
+        int 21h
+        pop dx ; repone dx
+        pop cx ; repone cx
+        pop bx ; repone bx
+        pop ax ;repone ax
+        ret   
+
+    getc: ; lee caracter dentro de al
+        push bx ; guarda bx
+        push cx ;guarda cx
+        push dx ; guarda dx
+        mov ah, 1h
+        int 21h
+        pop dx ; repone dx
+        pop cx ; repone cx
+        pop bx ; repone bx
+        ret   
+          
+        
+    limpiar_pantalla:         ;limpia la pantalla del MS-DOS
+        push ax ; save ax
+        push bx ; save bx
+        push cx ; save cx
+        push dx ; save dx
+        mov ah,00h
+        mov al,03h       
+        int 10h
+        pop dx ; restore dx
+        pop cx ; restore cx
+        pop bx ; restore bx
+        pop ax ; restore ax    
+        ret                   
+              
+    get_random_num:                      
+        push cx         ;guardo en la pila el valor de cx
+        mov ah, 0h      ;interrumpe para tener la hora en tiempo real del sistema
+        int 1ah         ;la hora se guardara en dx
+        pop cx          ;recupero el valor guardado en cx
+        mov ax, dx      ;mover la hora a ax
+        xor dx, dx      ;limpiar dx 
+        mov bx, 10      ; bx = 10 divisor para generar un numero entre 0 y 9
+        div bx          ; divide ax con bx  
+       
+        mov random_num, dx ; se obtiene la division de dl y lo guarda en variable random_num 
+        ret   
+                       
+    crear_cadena_aleatoria:
+        push ax       ; Guarda registros
+        push bx
+        push cx
+        push dx
+        push si
+        push di
+
+        mov cx, 10    ; Tamanho de la cadena (puedes cambiar este valor)
+        lea di, random_cadena ; Carga la direcciÃ³n donde se almacenarÃ¡ la cadena
+
+    generar_numero:
+        call get_random_num ; Genera un numero aleatorio (0-9)
+        mov bx, 36          ; Queremos un rango de 0-35 para incluir nÃºmeros y letras
+        div bx              ; Divide ax entre 36
+        cmp dl, 10          ; Compara si el numero es menor que 10
+        jl es_numero        ; Si es menor que 10, es un nÃºmero
+        add dl, 'A' - 10    ; Si es mayor o igual a 10, conviÃ©rtelo en una letra (A-Z)
+        jmp almacenar
+
+    es_numero:
+        add dl, '0'         ; Convierte el nÃºmero en carÃ¡cter ASCII
+
+    almacenar:
+        mov [di], dl        ; Almacena el carÃ¡cter en la cadena
+        inc di              ; Avanza al siguiente espacio en la cadena
+        loop generar_numero ; Repite hasta completar la longitud deseada
+
+        mov byte ptr [di], 0 ; Termina la cadena con un carÃ¡cter nulo
+        pop di
+        pop si
+        pop dx
+        pop cx
+        pop bx
+        pop ax
+        ret
+               
+    delay_text:
+         dec temp_text
+         jnz delay_text
+         ret         
+               
+    end_program:
+        call limpiar_pantalla
+        mov dx, offset error
+        call puts
+
+        call delay_text
+        mov ax, 4c00h
+        int 21h ; terminado, volver a dos    
+        
+end start
