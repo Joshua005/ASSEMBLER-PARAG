@@ -1,4 +1,4 @@
-                                    .model small
+.model small
 .stack 256  
 
     CR equ 13d
@@ -55,6 +55,8 @@ start:
     mov ax, offset random_cadena
     call put_str
     call delay_text
+    
+    
 
     ;Limpiar pantalla
     call limpiar_pantalla  
@@ -102,13 +104,22 @@ start:
     ; Si toda la secuencia es correcta
     CALL LIMPIAR_PANTALLA
     inc NIVEL       ; Incrementa el contador de rondas
+    INC LENG_LISTA
     mov ax, offset MENSAJE_NIVEL
     call put_str                 ; Muestra mensaje de éxito
    
-    jmp CREAR_CADENA_ALEATORIA             ; Genera una nueva ronda
+    CALL CREAR_CADENA_ALEATORIA             ; Genera una nueva ronda
+    MOV DX,OFFSET SALTO_DL
+    CALL PUTS
     mov ax, offset random_cadena
     call put_str
     call delay_text
+    CALL LIMPIAR_PANTALLA
+    mov ax, offset resp1
+    CALL GET_STR
+    
+    CALL COMPARAR
+    
     
     
     
@@ -313,9 +324,15 @@ start:
         ret
                
     delay_text:
-         dec temp_text
-         jnz delay_text
-         ret         
+        push cx
+        push dx
+        mov ah,86h  ;la func que hace esperar
+        mov cx,000Fh  ;en este caso un millon de micro segundos
+        mov dx,4240h
+        int 15h         
+        pop dx
+        pop cx
+        ret        
                
     end_program:
         call limpiar_pantalla
