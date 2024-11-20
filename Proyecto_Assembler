@@ -1,4 +1,4 @@
-.model small
+                                    .model small
 .stack 256  
 
     CR equ 13d
@@ -16,7 +16,9 @@
     temp_text dw 100  
     
     ;MENSAJES------------------------------------------------------------------
-    MENSAJE DB 'NIVEL 1',13,10,'$'
+    SALTO_DL DB 13,10,'$'
+    MENSAJE_NIVEL DB 'NIVEL ' 
+    NIVEL DB '1', 0 
     ERROR DB 'PERDISTE $'
     
     
@@ -31,7 +33,10 @@
 start:  
     mov ax, @data
     mov ds, ax
-    MOV DX, OFFSET MENSAJE
+    MOV AX, OFFSET MENSAJE_NIVEL
+    CALL PUT_STR
+   
+    MOV DX, OFFSET SALTO_DL
     CALL PUTS
 ;    ;Limpia pantalla
 ;    call limpiar_pantalla  
@@ -83,9 +88,76 @@ start:
         
                
         
-    incrementar:
-          inc SI
-          jmp comparar    
+    
+    
+    
+    
+    
+    
+           incrementar:
+    inc SI                       ; Avanza al siguiente carácter
+    cmp random_cadena[SI], 0     ; ¿Hemos llegado al final de la cadena?
+    jne comparar                 ; Si no, sigue verificando
+
+    ; Si toda la secuencia es correcta
+    CALL LIMPIAR_PANTALLA
+    inc NIVEL       ; Incrementa el contador de rondas
+    mov ax, offset MENSAJE_NIVEL
+    call put_str                 ; Muestra mensaje de éxito
+   
+    jmp CREAR_CADENA_ALEATORIA             ; Genera una nueva ronda
+    mov ax, offset random_cadena
+    call put_str
+    call delay_text
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  ;  
+;    incrementar:
+;          inc SI
+;          INC NIVEL
+;          INC LENG_LISTA
+;          jmp comparar    
           
           
     put_str: ; exhibe el caracter terminado con 0 cuya direccion esta en ax
