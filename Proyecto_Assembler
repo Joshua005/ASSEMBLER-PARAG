@@ -21,6 +21,9 @@
     NIVEL DB '1', 0 
     ERROR DB 'PERDISTE $'
     
+    MENSAJE_PUNTUACION DB 'PUNTUACION: $' 
+    PUNTUACION DW 0 
+    
 .CODE       
 
 START:  
@@ -76,14 +79,18 @@ START:
         JMP END_PROGRAM  
     
     INCREMENTAR:
-        INC SI                       ; AVANZA AL SIGUIENTE CARÁCTER
+        INC SI                       ; AVANZA AL SIGUIENTE CARÁCTER     
+        INC PUNTUACION               ; Incrementa el puntaje por cada acierto
         CMP RANDOM_CADENA[SI], 0     ; ¿HEMOS LLEGADO AL FINAL DE LA CADENA?
         JNE COMPARAR                 ; SI NO, SIGUE VERIFICANDO
     
         ; SI TODA LA SECUENCIA ES CORRECTA
         CALL LIMPIAR_PANTALLA
         INC NIVEL                    ; INCREMENTA EL CONTADOR DE RONDAS
-        INC LENG_LISTA
+        INC LENG_LISTA 
+        
+        ADD PUNTUACION, 10  
+        
         MOV AX, OFFSET MENSAJE_NIVEL
         CALL PUT_STR                 ; MUESTRA MENSAJE DE ÉXITO
        
@@ -260,13 +267,34 @@ START:
         POP DX
         POP CX
         RET        
+      
+    MOSTRAR_PUNTUACION:
+        ; MUESTRA UN NÚMERO DE DOS DÍGITOS ALMACENADO EN AL
+        AAM                     ; SEPARA AX EN DECENAS (AH) Y UNIDADES (AL)
+        MOV BX, AX              ; GUARDA LAS DECENAS Y UNIDADES EN BX
+        
+        MOV AH, 02H             ; PREPARA PARA MOSTRAR UN CARÁCTER
+        MOV DL, BH              ; BH CONTIENE LAS DECENAS
+        ADD DL, '0'             ; CONVIERTE A ASCII
+        INT 21H                 ; MUESTRA EL CARÁCTER
+        
+        MOV AH, 02H             ; PREPARA PARA MOSTRAR UN CARÁCTER
+        MOV DL, BL              ; BL CONTIENE LAS UNIDADES
+        ADD DL, '0'             ; CONVIERTE A ASCII
+        INT 21H                 ; MUESTRA EL CARÁCTER
+        RET  
                
     END_PROGRAM:
         CALL LIMPIAR_PANTALLA
         MOV DX, OFFSET ERROR
         CALL PUTS
-
+             
+        MOV DX, OFFSET MENSAJE_PUNTUACION
+        CALL PUTS
+        MOV AX, PUNTUACION
+        CALL MOSTRAR_PUNTUACION     
+         
         MOV AX, 4C00H
-        INT 21H ; TERMINADO, VOLVER A DOS    
-        
+        INT 21H ; TERMINADO, VOLVER A DOS 
+         
 END START
