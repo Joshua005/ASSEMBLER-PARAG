@@ -19,10 +19,16 @@
     SALTO_DL DB 13,10,'$'
     MENSAJE_NIVEL DB 'NIVEL ' 
     NIVEL DB '1', 0 
-    ERROR DB 'PERDISTE $'
-    
-    MENSAJE_PUNTUACION DB 'PUNTUACION: $' 
-    PUNTUACION DW 0 
+    ERROR DB 'PERDISTE', 13, 10, '$'  
+    MENSAJE_CONTINUAR DB ' ¿DESEAS CONTINUAR AL SIGUIENTE NIVEL? (S/N): $'       
+    MENSAJE_FELICIDADES DB 'FELICIDADES' , 13, 10, '$'
+    LLEGASTE_NV DB 'LLEGASTE AL NIVEL $'
+    MENSAJE_RESPUESTA DB 'RESPUESTA CORRECTA $'
+    MENSAJE_USUARIO DB 'RESPUESTA INGRESADA $' 
+        
+    MENSAJE_PUNTUACION DB ', CON UNA PUNTUACION DE $' 
+    PUNTUACION DW 0   
+    CANT_ACIERTOS DW 0
     
 .CODE       
 
@@ -45,8 +51,6 @@ START:
     MOV AX, OFFSET RANDOM_CADENA
     CALL PUT_STR
     CALL DELAY_TEXT
-    
-    
 
     ;LIMPIAR PANTALLA
     CALL LIMPIAR_PANTALLA  
@@ -73,29 +77,34 @@ START:
         CMP RESP1[SI], BH   
         
         ;SI SON IGUALES
-        JE INCREMENTAR
+        JE INCREMENTAR 
         
         ;SINO
         JMP END_PROGRAM  
     
     INCREMENTAR:
-        INC SI                       ; AVANZA AL SIGUIENTE CARÁCTER     
-        INC PUNTUACION               ; Incrementa el puntaje por cada acierto
+        INC SI                       ; AVANZA AL SIGUIENTE CARÁCTER   
+        INC PUNTUACION               ; INCREMENTA EL PUNTAJE POR CADA ACIERTO 
+        INC CANT_ACIERTOS            ; INCREMENTA LA CANTIDAD DE ACIERTOS  
         CMP RANDOM_CADENA[SI], 0     ; ¿HEMOS LLEGADO AL FINAL DE LA CADENA?
-        JNE COMPARAR                 ; SI NO, SIGUE VERIFICANDO
+        JNE COMPARAR                 ; SI NO, SIGUE VERIFICANDO     
     
         ; SI TODA LA SECUENCIA ES CORRECTA
         CALL LIMPIAR_PANTALLA
-        INC NIVEL                    ; INCREMENTA EL CONTADOR DE RONDAS
-        INC LENG_LISTA 
-        
-        ADD PUNTUACION, 10  
-        
+        INC NIVEL                    ; INCREMENTA EL CONTADOR DE RONDAS 
+        INC LENG_LISTA               ; AUMENTA LA LONGITUD DE LA LISTA
+        ADD PUNTUACION, 10           ; AUMENTA PUNTOS POR NIVEL COMPLETADO
+    
         MOV AX, OFFSET MENSAJE_NIVEL
         CALL PUT_STR                 ; MUESTRA MENSAJE DE ÉXITO
-       
+        CALL PREGUNTAR_CONTINUAR     ; PREGUNTA SI DESEA CONTINUAR
+    
+        CMP AL, 'N'                 ; ¿EL USUARIO DESEA SALIR? ('N' PARA SALIR)
+        JE FELICIDADES            ; SI SÍ, TERMINA EL PROGRAMA
+
+        ; SI DECIDE CONTINUAR
         CALL CREAR_CADENA_ALEATORIA  ; GENERA UNA NUEVA RONDA
-        MOV DX,OFFSET SALTO_DL
+        MOV DX, OFFSET SALTO_DL
         CALL PUTS
         MOV AX, OFFSET RANDOM_CADENA
         CALL PUT_STR
@@ -103,9 +112,9 @@ START:
         CALL LIMPIAR_PANTALLA
         MOV AX, OFFSET RESP1
         CALL GET_STR
-        
-        CALL COMPARAR
-          
+
+        CALL COMPARAR                ; REPETIR EL JUEGO DESDE AQUÍ
+
     PUT_STR: ; EXHIBE EL CARACTER TERMINADO CON 0 CUYA DIRECCION ESTA EN AX
         PUSH AX ; GUARDA REGISTROS
         PUSH BX
@@ -282,18 +291,80 @@ START:
         MOV DL, BL              ; BL CONTIENE LAS UNIDADES
         ADD DL, '0'             ; CONVIERTE A ASCII
         INT 21H                 ; MUESTRA EL CARÁCTER
-        RET  
-               
-    END_PROGRAM:
+        RET
+         
+    PREGUNTAR_CONTINUAR:
+      
+        PUSH BX
+        PUSH CX
+        PUSH DX
+                              
+        MOV DX, OFFSET MENSAJE_CONTINUAR   
+        CALL PUTS                     ; MUESTRA EL MENSAJE DE PREGUNTA
+        CALL GETC                     ; LEE UNA TECLA DEL USUARIO EN AL
+    
+        POP DX
+        POP CX
+        POP BX
+      
+        RET
+             
+    FELICIDADES:
         CALL LIMPIAR_PANTALLA
-        MOV DX, OFFSET ERROR
+        MOV DX, OFFSET MENSAJE_FELICIDADES
         CALL PUTS
+        
+        MOV DX, OFFSET LLEGASTE_NV
+        CALL PUTS        
+        MOV AX, OFFSET NIVEL
+        CALL PUT_STR
              
         MOV DX, OFFSET MENSAJE_PUNTUACION
         CALL PUTS
         MOV AX, PUNTUACION
-        CALL MOSTRAR_PUNTUACION     
-         
+        CALL MOSTRAR_PUNTUACION   
+        
+        MOV AX, 4C00H
+        INT 21H ; TERMINADO, VOLVER A DOS     
+                                  
+    END_PROGRAM:
+        CALL LIMPIAR_PANTALLA
+        MOV DX, OFFSET ERROR
+        CALL PUTS
+        
+        MOV DX, OFFSET MENSAJE_RESPUESTA
+        CALL PUTS
+        
+        MOV AX, OFFSET RANDOM_CADENA
+        CALL PUT_STR
+        
+        MOV DX, OFFSET SALTO_DL
+        CALL PUTS
+          
+        MOV DX, OFFSET MENSAJE_USUARIO
+        CALL PUTS        
+        
+        MOV AX,  OFFSET RESP1
+        CALL PUT_STR
+          
+        MOV DX, OFFSET SALTO_DL
+        CALL PUTS   
+                
+        MOV AX, CANT_ACIERTOS
+        CALL MOSTRAR_PUNTUACION
+        MOV DX, OFFSET SALTO_DL
+        CALL PUTS        
+               
+        MOV DX, OFFSET LLEGASTE_NV
+        CALL PUTS        
+        MOV AX, OFFSET NIVEL
+        CALL PUT_STR
+             
+        MOV DX, OFFSET MENSAJE_PUNTUACION
+        CALL PUTS
+        MOV AX, PUNTUACION
+        CALL MOSTRAR_PUNTUACION 
+        
         MOV AX, 4C00H
         INT 21H ; TERMINADO, VOLVER A DOS 
          
