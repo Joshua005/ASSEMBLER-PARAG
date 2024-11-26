@@ -1,13 +1,13 @@
 .MODEL SMALL
 .STACK 256  
 .DATA    
-
     ; Definicion de variables y mensajes
-    MAX_NIVEL DW 10 ; Numero maximo de niveles permitido
-    RESP1 DB 80 DUP (0) ; Espacio para la respuesta del usuario
     RANDOM_NUM DW 0 ; Variable para almacenar el numero aleatorio             
     RANDOM_CADENA DB 80 DUP(0) ; Espacio para almacenar la cadena generada
     LENG_LISTA DW 5 ; Longitud de la lista 
+    RESP1 DB 80 DUP (0) ; Espacio para la respuesta del usuario
+    MAX_NIVEL DW 10 ; Numero maximo de niveles permitido
+    
     ; Mensajes
     
     SALTO_DL DB 13,10,'$' ; Salto de linea
@@ -17,53 +17,56 @@
     MENSAJE_CONTINUAR DB ' *DESEAS VOLVER A JUGAR? (S/N): $'       
     MENSAJE_FELICIDADES DB 'FELICIDADES' , 13, 10, '$'
     MENSAJE_GANASTE DB 'GANASTE' , 13, 10, '$'
-    LLEGASTE_NV DB 'LLEGASTE AL NIVEL $'
+
     MENSAJE_RESPUESTA DB 'RESPUESTA CORRECTA: $'
-    MENSAJE_USUARIO DB 'RESPUESTA INGRESADA: $' 
-    MENSAJE_PUNTUACION DB ', CON UNA PUNTUACION DE $' 
+    MENSAJE_USUARIO DB 'RESPUESTA INGRESADA: $'
+    
+    LLEGASTE_NV DB 'LLEGASTE AL NIVEL $'    
+    MENSAJE_PUNTUACION DB ', CON UNA PUNTUACION DE $'  
+
     PUNTUACION DW 0   
     CANT_ACIERTOS DW 0
     MENSAJE_CANT_ACIERTOS DB 'CANTIDAD DE ACIERTOS: $'         
-    MENSAJE_JUEGO_TERMINADO DB 'JUEGO TERMINADO $'
-    
+    MENSAJE_JUEGO_TERMINADO DB 'JUEGO TERMINADO $'   
+    MENSAJE_TIMEOUT DB 'TIEMPO AGOTADO', 13, 10, '$'
+        
 .CODE       
 
 START:  
     MOV AX, @DATA
     MOV DS, AX     
-    
-    ; Muestra el nivel en el que te encuentras
-    MOV AX, OFFSET MENSAJE_NIVEL
-    CALL PUT_STR
-        
-    ; Realiza un salto de linea
-    MOV DX, OFFSET SALTO_DL
-    CALL PUTS
-                  
-    ; Generar la cadena aleatoria
-    CALL CREAR_CADENA_ALEATORIA 
-
-    ; Mostrar la cadena aleatoria en pantalla
-    MOV AX, OFFSET RANDOM_CADENA
-    CALL PUT_STR
-    CALL DELAY_TEXT
-
-    ; Limpiar pantalla
-    CALL LIMPIAR_PANTALLA    
-    CALL PIP
-    
-    ; Leer lo que ingreso el usuario
-    MOV AX, OFFSET RESP1      
-    CALL GET_STR_TIMER   
-                      
-    ; Setea el contador de indices
-    MOV SI, 0     
-    
-    ; Compara lo que esta en RANDOM_CADENA y RESP1 
-    CALL COMPARAR
+   
+    CALL INICIAR_RONDA
                         
-    CALL END_PROGRAM  ; Fin del programa
+    ; ---- SUBRUTINA PRINCIPAL ----
     
+    INICIAR_RONDA:
+        ; Muestra el nivel en el que te encuentras
+        MOV AX, OFFSET MENSAJE_NIVEL
+        CALL PUT_STR
+            
+        ; Realiza un salto de linea
+        MOV DX, OFFSET SALTO_DL
+        CALL PUTS
+    
+        CALL CREAR_CADENA_ALEATORIA    ; GENERAR CADENA ALEATORIA
+        MOV AX, OFFSET RANDOM_CADENA
+        CALL PUT_STR
+        CALL DELAY_TEXT
+        CALL LIMPIAR_PANTALLA 
+        CALL PIP
+            
+        ; LEER RESPUESTA DEL USUARIO  
+        MOV AX, OFFSET RESP1
+        CALL GET_STR_TIMER
+    
+        ; COMPARAR CADENA GENERADA CON RESPUESTA DEL USUARIO    
+        MOV SI, 0    
+        CALL COMPARAR
+        RET
+    
+    ; ---- COMPARA LA CADENA ALEATORIA CON LA RESPUESTA ----    
+                
     COMPARAR:         
         MOV BH, RANDOM_CADENA[SI] 
         MOV AL, BH
@@ -93,298 +96,11 @@ START:
         INC LENG_LISTA               ; Aumenta la longitud de la lista
         ADD PUNTUACION, 10           ; Aumenta puntos por nivel completado
     
-        MOV AX, OFFSET MENSAJE_NIVEL
-        CALL PUT_STR          
-                 
-        CALL CREAR_CADENA_ALEATORIA  ; Genera una nueva ronda
-        MOV DX, OFFSET SALTO_DL
-        CALL PUTS
-        MOV AX, OFFSET RANDOM_CADENA
-        CALL PUT_STR
-        CALL DELAY_TEXT
-        CALL LIMPIAR_PANTALLA  
-        CALL PIP
-        MOV AX, OFFSET RESP1
-        CALL GET_STR_TIMER
-
-        CALL COMPARAR                ; Repetir el juego desde aqui
-
-    PUT_STR: ; Exhibe el caracter terminado con 0 cuya direccion esta en AX
-        ; Guarda registros
-        PUSH AX         
-        PUSH BX
-        PUSH CX
-        PUSH DX
-        MOV BX, AX ; Almacena direccion en BX
-        MOV AL, BYTE PTR [BX] ; AL = primer caracter en el string
-
-    PUT_LOOP: 
-        CMP AL, 0       ; AL == 0 ?
-        JE PUT_FIN      ; Mientras AL != 0
-        CALL PUTC       ; Exhibe caracter
-        INC BX          ; BX = BX + 1
-        MOV AL, BYTE PTR [BX]   ; AL = siguiente caracter en el string
-        JMP PUT_LOOP            ; Repite la prueba del bucle           
-
-    PUT_FIN:
-        POP DX 
-        POP CX
-        POP BX
-        POP AX
-        RET  
-        
-    GET_STR_TIMER:  ; Lee el string terminado por CR o timeout en 15 segundos
-        PUSH AX     ; Guarda registros
-        PUSH BX     
-        PUSH CX
-        PUSH DX
-        PUSH SI
-
-        ; Captura la hora inicial en ticks
-        MOV AH, 00h
-        INT 1Ah
-        MOV BX, DX ; Guarda los ticks iniciales en BX
-        MOV SI, 0
-        
-    TIMER_LOOP:
-        ; Calcula el tiempo transcurrido
-        
-        MOV AH, 00h
-        INT 1Ah
-        SUB DX, BX ; DX = Ticks transcurridos
-        CMP DX, 165 ; 15 segundos en ticks (~18.2 ticks/segundo)
-        JAE TIMEOUT ; Si el tiempo se agot?, termina el bucle
-
-        ; Verifica si hay entrada del teclado
-        MOV AH, 01h
-        INT 16h
-        ;JZ TIMER_LOOP ; Si no hay entrada, sigue verificando
-
-        ; Lee el caracter si hay entrada
-        ;MOV AH, 08h
-        ;INT 21h
-        CALL GETC
-        CMP AL, 13 ; ?Es Enter (CR)?
-        JE GET_FIN_TIMER ; Si es Enter, termina
-
-        ; Guarda el car?cter en el buffer
-        MOV [RESP1 + SI], AL ; Usa SI como indice para almacenar el caracter
-        INC SI               ; Avanza al siguiente indice del buffer
-        JMP TIMER_LOOP ; Sigue leyendo
-
-    TIMEOUT:
-        ; Si el tiempo se agotado, termina el string
+        CALL INICIAR_RONDA 
        
-        CALL END_PROGRAM
-
-    GET_FIN_TIMER:
-        MOV BYTE PTR [RESP1 + SI], 0 ; Termina la cadena con un NULL
-        POP DX
-        POP CX
-        POP BX
-        POP AX
-        POP SI
-        
-    PUTC: ; Exhibe caracter en AL
-        PUSH AX ; Guarda AX
-        PUSH BX ; Guarda BX
-        PUSH CX ; Guarda CX
-        PUSH DX ; Guarda DX
-        MOV DL, AL
-        MOV AH, 2H
-        INT 21H
-        POP DX ; Repone DX
-        POP CX ; Repone CX
-        POP BX ; Repone BX
-        POP AX ; Repone AX
-        RET
+     ; ---- SI COMPLETAS EL JUEGO ----      
           
-    PUTS:
-        PUSH AX ; Guarda AX
-        PUSH BX ; Guarda BX
-        PUSH CX ; Guarda CX
-        PUSH DX ; Guarda DX
-        MOV AH, 9H
-        INT 21H
-        POP DX ; Repone DX
-        POP CX ; Repone CX
-        POP BX ; Repone BX
-        POP AX ; Repone AX
-        RET   
-
-    GETC: ; Lee caracter dentro de AL
-        PUSH BX ; Guarda BX
-        PUSH CX ; Guarda CX
-        PUSH DX ; Guarda DX
-        MOV AH, 1H
-        INT 21H
-        POP DX ; Repone DX
-        POP CX ; Repone CX
-        POP BX ; Repone BX
-        RET   
-          
-    LIMPIAR_PANTALLA: ; Limpia la pantalla del MS-DOS
-        PUSH AX ; Guarda AX
-        PUSH BX ; Guarda BX
-        PUSH CX ; Guarda CX
-        PUSH DX ; Guarda DX
-        MOV AH,00H
-        MOV AL,03H       
-        INT 10H      
-        POP DX ; Repone DX
-        POP CX ; Repone CX
-        POP BX ; Repone BX
-        POP AX ; Repone AX    
-        RET                   
-
-    GET_RANDOM_NUM: ; Genera un numero aleatorio
-        PUSH CX ; Guarda CX
-        MOV AH, 0H ; Interrumpe para tener la hora en tiempo real del sistema
-        INT 1AH ; La hora se guardara en DX
-        POP CX ; Recupera el valor guardado en CX
-        MOV AX, DX ; Mueve la hora a AX
-        XOR DX, DX ; Limpia DX 
-        MOV BX, 10 ; BX = 10 divisor para generar un numero entre 0 y 9
-        DIV BX ; Divide AX con BX  
-        MOV RANDOM_NUM, DX ; Se obtiene la divisionn de DL y lo guarda en variable RANDOM_NUM 
-        RET   
-                       
-    CREAR_CADENA_ALEATORIA: ; Crea una cadena aleatoria
-        PUSH AX ; Guarda registros
-        PUSH BX
-        PUSH CX
-        PUSH DX
-        PUSH SI
-        PUSH DI
-
-        MOV CX, LENG_LISTA ; Tamamho de la cadena
-        LEA DI, RANDOM_CADENA ; Carga la direccion donde se almacenarï¿½ la cadena
-
-    GENERAR_NUMERO:
-        CALL GET_RANDOM_NUM ; Genera un numero aleatorio (0-9)
-        MOV BX, 36 ; Queremos un rango de 0-35 para incluir numeros y letras
-        DIV BX ; Divide AX entre 36
-        CMP DL, 10 ; Compara si el numero es menor que 10
-        JL ES_NUMERO ; Si es menor que 10, es un numero
-        ADD DL, 'A' - 10 ; Si es mayor o igual a 10, convierte en una letra (A-Z)
-        JMP ALMACENAR
-
-    ES_NUMERO:
-        ADD DL, '0' ; Convierte el numero en caracter ASCII
-
-    ALMACENAR:
-        MOV [DI], DL ; Almacena el caracter en la cadena
-        INC DI ; Avanza al siguiente espacio en la cadena
-        LOOP GENERAR_NUMERO ; Repite hasta completar la longitud deseada
-
-        MOV BYTE PTR [DI], 0 ; Termina la cadena con un caracter nulo
-        POP DI
-        POP SI
-        POP DX
-        POP CX
-        POP BX
-        POP AX
-        RET
-               
-    DELAY_TEXT: ; Hace una pausa
-        PUSH CX
-        PUSH DX
-        MOV AH,86H ; La funcion que hace esperar
-        MOV CX,000FH ; En este caso un millï¿½n de microsegundos
-        MOV DX,4240H
-        INT 15H         
-        POP DX
-        POP CX
-        RET        
-      
-    MOSTRAR_DOS_DIGITOS: ; Muestra un numero de dos digitos almacenado en AL
-        AAM ; Separa AX en decenas (AH) y unidades (AL)
-        MOV BX, AX ; Guarda las decenas y unidades en BX
-        
-        MOV AH, 02H ; Prepara para mostrar un caracter
-        MOV DL, BH ; BH contiene las decenas
-        ADD DL, '0' ; Convierte a ASCII
-        INT 21H ; Muestra el caracter
-        
-        MOV AH, 02H ; Prepara para mostrar un caracter
-        MOV DL, BL ; BL contiene las unidades
-        ADD DL, '0' ; Convierte a ASCII
-        INT 21H ; Muestra el caracter
-        RET
-         
-    PREGUNTAR_CONTINUAR: ; Pregunta si desea continuar
-        PUSH BX
-        PUSH CX
-        PUSH DX
-                              
-        MOV DX, OFFSET MENSAJE_CONTINUAR   
-        CALL PUTS ; Muestra el mensaje de pregunta
-        CALL GETC ; Lee una tecla del usuario en AL
-    
-        POP DX
-        POP CX
-        POP BX
-        RET
-        
-    ACIERTOS: ; Cuenta los aciertos
-        MOV SI, 0 ; Inicializa el indice a 0
-        MOV CANT_ACIERTOS, 0 ; Inicializa el contador de aciertos a 0
-
-    ACIERTOS_LOOP:
-        MOV BH, RANDOM_CADENA[SI]
-        CMP BH, 0 ; Verifica si es el final de la cadena
-        JE ACIERTOS_FIN ; Si es el final, termina el bucle
-
-        CMP RESP1[SI], BH ; Compara los caracteres
-        JNE ACIERTOS_NEXT ; Si no son iguales, pasa al siguiente
-
-        INC CANT_ACIERTOS ; Incrementa el contador de aciertos
-
-    ACIERTOS_NEXT:
-        INC SI ; Avanza al siguiente caracter
-        JMP ACIERTOS_LOOP ; Repite el bucle
-
-    ACIERTOS_FIN:
-        RET ; Termina el procedimiento    
-  
-    REINICIO:
-        ; Limpia variables clave
-        MOV NIVEL, '1',O
-        MOV SI, 0                ; Reinicia indice de comparacion
-        MOV BYTE PTR [RESP1], 0  ; Limpia la entrada del usuario
-        MOV BYTE PTR [RANDOM_CADENA], 0 ; Limpia la cadena generada
-        MOV CANT_ACIERTOS, 0     ; Reinicia el contador de aciertos 
-        MOV PUNTUACION, 0
-        MOV LENG_LISTA, 5
-
-        ; Muestra el nivel actual
-        CALL LIMPIAR_PANTALLA
-        MOV AX, OFFSET MENSAJE_NIVEL
-        CALL PUT_STR
-        MOV DX, OFFSET SALTO_DL
-        CALL PUTS
-
-        ; Generar nueva cadena aleatoria
-        CALL CREAR_CADENA_ALEATORIA
-        MOV AX, OFFSET RANDOM_CADENA
-        CALL PUT_STR
-        CALL DELAY_TEXT
-        CALL LIMPIAR_PANTALLA 
-        CALL PIP
-
-        ; Leer nueva respuesta del usuario
-        MOV AX, OFFSET RESP1
-        CALL GET_STR_TIMER
-
-        ; Comparar cadenas
-        CALL COMPARAR
-       
-     PIP:
-        MOV AL, 7
-        CALL PUTC  
-        RET 
-             
-        COMPLETADO:
+     COMPLETADO:
         CALL LIMPIAR_PANTALLA
         MOV DX, OFFSET MENSAJE_FELICIDADES
         CALL PUTS
@@ -401,15 +117,11 @@ START:
         ; Pregunta si desea continuar  
         CALL PIP
         CALL PREGUNTAR_CONTINUAR  
-        CMP AL, 'S'
-        JE REINICIO  ; Si el usuario desea continuar, vuelve a REINICIO
-        CALL LIMPIAR_PANTALLA          
-        
-        MOV DX, OFFSET MENSAJE_JUEGO_TERMINADO
-        CALL PUTS
-                        
+           
         MOV AX, 4C00H
         INT 21H ; Finaliza el programa         
+       
+    ; ---- SI FALLAS ----   
                         
     END_PROGRAM: ; Termina el programa
         CALL LIMPIAR_PANTALLA
@@ -457,15 +169,319 @@ START:
         ; Pregunta si desea continuar 
         CALL PIP  
         CALL PIP
-        CALL PREGUNTAR_CONTINUAR 
+        CALL PREGUNTAR_CONTINUAR    
+    
+        MOV AX, 4C00H
+        INT 21H ; Si no desea continuar, termina el programa     
+      
+    ; ---- TIMER ----           
+              
+    GET_STR_TIMER:  ; Lee el string terminado por CR o timeout en 15 segundos
+        PUSH AX     ; Guarda registros
+        PUSH BX     
+        PUSH CX
+        PUSH DX
+        PUSH SI
+
+        ; Captura la hora inicial en ticks
+        MOV AH, 00h
+        INT 1Ah
+        MOV BX, DX ; Guarda los ticks iniciales en BX
+        MOV SI, 0
+        
+    TIMER_LOOP:
+        ; Calcula el tiempo transcurrido
+        
+        MOV AH, 00h
+        INT 1Ah
+        SUB DX, BX ; DX = Ticks transcurridos
+        CMP DX, 165 ; 15 segundos en ticks (~18.2 ticks/segundo)
+        JAE TIMEOUT ; Si el tiempo se agoto, termina el bucle
+
+        ; Verifica si hay entrada del teclado
+        MOV AH, 01h
+        INT 16h
+        ;JZ TIMER_LOOP ; Si no hay entrada, sigue verificando
+
+        ; Lee el caracter si hay entrada
+        ;MOV AH, 08h
+        ;INT 21h
+        CALL GETC
+        CMP AL, 13 ; Es Enter (CR)?
+        JE GET_FIN_TIMER ; Si es Enter, termina
+
+        ; Guarda el car?cter en el buffer
+        MOV [RESP1 + SI], AL ; Usa SI como indice para almacenar el caracter
+        INC SI               ; Avanza al siguiente indice del buffer
+        JMP TIMER_LOOP ; Sigue leyendo
+
+    TIMEOUT:
+        ; Si el tiempo se agotado, termina el string    
+        CALL PIP
+        CALL PIP
+        CALL PIP  
+        CALL PIP 
+        
+        CALL LIMPIAR_PANTALLA
+        MOV DX, OFFSET MENSAJE_TIMEOUT 
+        CALL PUTS  
+        
+        CALL DELAY_TEXT  
+        CALL DELAY_TEXT
+        CALL DELAY_TEXT      
+        
+        CALL END_PROGRAM
+
+    GET_FIN_TIMER:
+        MOV BYTE PTR [RESP1 + SI], 0 ; Termina la cadena con un NULL
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        POP SI 
+        
+   ; ---- LOS PUTs ----
+     
+    PUTC: ; Exhibe caracter en AL
+        PUSH AX ; Guarda AX
+        PUSH BX ; Guarda BX
+        PUSH CX ; Guarda CX
+        PUSH DX ; Guarda DX
+        MOV DL, AL
+        MOV AH, 2H
+        INT 21H
+        POP DX ; Repone DX
+        POP CX ; Repone CX
+        POP BX ; Repone BX
+        POP AX ; Repone AX
+        RET
+          
+    PUTS: ; Exhibe string guardado en DX que termine con $
+        PUSH AX ; Guarda AX
+        PUSH BX ; Guarda BX
+        PUSH CX ; Guarda CX
+        PUSH DX ; Guarda DX
+        MOV AH, 9H
+        INT 21H
+        POP DX ; Repone DX
+        POP CX ; Repone CX
+        POP BX ; Repone BX
+        POP AX ; Repone AX
+        RET   
+      
+    ; ---- PARA EXIBIR CARACTERES QUE TERMINEN EN 0 ----
+    
+    PUT_STR:
+        ; Guarda registros
+        PUSH AX         
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        MOV BX, AX ; Almacena direccion en BX
+        MOV AL, BYTE PTR [BX] ; AL = primer caracter en el string
+
+    PUT_LOOP: 
+        CMP AL, 0       ; AL == 0 ?
+        JE PUT_FIN      ; Mientras AL != 0
+        CALL PUTC       ; Exhibe caracter
+        INC BX          ; BX = BX + 1
+        MOV AL, BYTE PTR [BX]   ; AL = siguiente caracter en el string
+        JMP PUT_LOOP            ; Repite la prueba del bucle           
+
+    PUT_FIN:
+        POP DX 
+        POP CX
+        POP BX
+        POP AX
+        RET
+    
+    ; ---- LIMPIA LA PANTALLA ----
+     
+    LIMPIAR_PANTALLA: ; Limpia la pantalla del MS-DOS
+        PUSH AX ; Guarda AX
+        PUSH BX ; Guarda BX
+        PUSH CX ; Guarda CX
+        PUSH DX ; Guarda DX
+        MOV AH,00H
+        MOV AL,03H       
+        INT 10H      
+        POP DX ; Repone DX
+        POP CX ; Repone CX
+        POP BX ; Repone BX
+        POP AX ; Repone AX    
+        RET     
+       
+    ; ---- UN SLEEP TIME ----   
+    
+    DELAY_TEXT: ; Hace una pausa
+        PUSH CX
+        PUSH DX
+        MOV AH,86H ; La funcion que hace esperar
+        MOV CX,000FH ; En este caso un millon de microsegundos
+        MOV DX,4240H
+        INT 15H         
+        POP DX
+        POP CX
+        RET   
+        
+    PIP:
+        MOV AL, 7
+        CALL PUTC  
+        RET                  
+    
+    ; ---- LEE CARACTERES DENTRO DE AL ----
+    
+    GETC: 
+        PUSH BX ; Guarda BX
+        PUSH CX ; Guarda CX
+        PUSH DX ; Guarda DX
+        MOV AH, 1H
+        INT 21H
+        POP DX ; Repone DX
+        POP CX ; Repone CX
+        POP BX ; Repone BX
+        RET                 
+       
+    ; ---- PARA LA CADENA ALEATORIA ----    
+
+    GET_RANDOM_NUM: ; Genera un numero aleatorio
+        PUSH CX ; Guarda CX
+        MOV AH, 0H ; Interrumpe para tener la hora en tiempo real del sistema
+        INT 1AH ; La hora se guardara en DX
+        POP CX ; Recupera el valor guardado en CX
+        MOV AX, DX ; Mueve la hora a AX
+        XOR DX, DX ; Limpia DX 
+        MOV BX, 10 ; BX = 10 divisor para generar un numero entre 0 y 9
+        DIV BX ; Divide AX con BX  
+        MOV RANDOM_NUM, DX ; Se obtiene la divisionn de DL y lo guarda en variable RANDOM_NUM 
+        RET   
+                       
+    CREAR_CADENA_ALEATORIA: ; Crea una cadena aleatoria
+        PUSH AX ; Guarda registros
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+        PUSH DI
+
+        MOV CX, LENG_LISTA ; Tamamho de la cadena
+        LEA DI, RANDOM_CADENA ; Carga la direccion donde se almacenara la cadena
+
+    GENERAR_NUMERO:
+        CALL GET_RANDOM_NUM ; Genera un numero aleatorio (0-9)
+        MOV BX, 36 ; Queremos un rango de 0-35 para incluir numeros y letras
+        DIV BX ; Divide AX entre 36
+        CMP DL, 10 ; Compara si el numero es menor que 10
+        JL ES_NUMERO ; Si es menor que 10, es un numero
+        ADD DL, 'A' - 10 ; Si es mayor o igual a 10, convierte en una letra (A-Z)
+        JMP ALMACENAR
+
+    ES_NUMERO:
+        ADD DL, '0' ; Convierte el numero en caracter ASCII
+
+    ALMACENAR:
+        MOV [DI], DL ; Almacena el caracter en la cadena
+        INC DI ; Avanza al siguiente espacio en la cadena
+        LOOP GENERAR_NUMERO ; Repite hasta completar la longitud deseada
+
+        MOV BYTE PTR [DI], 0 ; Termina la cadena con un caracter nulo
+        POP DI
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET    
+   
+   ; ----  PARA MOSTRAR LA PUNTUACION ----
+      
+    MOSTRAR_DOS_DIGITOS: ; Muestra un numero de dos digitos almacenado en AL
+        AAM ; Separa AX en decenas (AH) y unidades (AL)
+        MOV BX, AX ; Guarda las decenas y unidades en BX
+        
+        MOV AH, 02H ; Prepara para mostrar un caracter
+        MOV DL, BH ; BH contiene las decenas
+        ADD DL, '0' ; Convierte a ASCII
+        INT 21H ; Muestra el caracter
+        
+        MOV AH, 02H ; Prepara para mostrar un caracter
+        MOV DL, BL ; BL contiene las unidades
+        ADD DL, '0' ; Convierte a ASCII
+        INT 21H ; Muestra el caracter
+        RET
+     
+    ; ----  PARA MOSTRAR LOS ACIERTOS ---- 
+        
+    ACIERTOS: ; Cuenta los aciertos
+        MOV SI, 0 ; Inicializa el indice a 0
+        MOV CANT_ACIERTOS, 0 ; Inicializa el contador de aciertos a 0
+
+    ACIERTOS_LOOP:
+        MOV BH, RANDOM_CADENA[SI]
+        CMP BH, 0 ; Verifica si es el final de la cadena
+        JE ACIERTOS_FIN ; Si es el final, termina el bucle
+
+        CMP RESP1[SI], BH ; Compara los caracteres
+        JNE ACIERTOS_NEXT ; Si no son iguales, pasa al siguiente
+
+        INC CANT_ACIERTOS ; Incrementa el contador de aciertos
+
+    ACIERTOS_NEXT:
+        INC SI ; Avanza al siguiente caracter
+        JMP ACIERTOS_LOOP ; Repite el bucle
+
+    ACIERTOS_FIN:
+        RET ; Termina el procedimiento    
+       
+    ; ---- PARA REINICIAR EL PROGRAMA ---- ;   
+       
+    PREGUNTAR_CONTINUAR: ; Pregunta si desea continuar
+        PUSH BX
+        PUSH CX
+        PUSH DX
+                              
+        MOV DX, OFFSET MENSAJE_CONTINUAR   
+        CALL PUTS ; Muestra el mensaje de pregunta
+        CALL GETC ; Lee una tecla del usuario en AL
         CMP AL, 'S'
         JE REINICIO  ; Si el usuario desea continuar, vuelve a REINICIO
         CALL LIMPIAR_PANTALLA          
         
         MOV DX, OFFSET MENSAJE_JUEGO_TERMINADO
-        CALL PUTS
+        CALL PUTS  
+          
+        POP DX
+        POP CX
+        POP BX
+        RET         
+       
+    REINICIO:
+        ; Limpia variables clave
+        MOV NIVEL, '1',O
+        MOV SI, 0                ; Reinicia indice de comparacion
+        CALL LIMPIAR_BUFFER
+        CALL LIMPIAR_RANDOM_CADENA ; Limpia la cadena generada
+        MOV CANT_ACIERTOS, 0     ; Reinicia el contador de aciertos 
+        MOV PUNTUACION, 0
+        MOV LENG_LISTA, 5
+                                         
+        CALL LIMPIAR_PANTALLA
+        CALL INICIAR_RONDA   
     
-        MOV AX, 4C00H
-        INT 21H ; Si no desea continuar, termina el programa
-
+    ; LIMPIAR_BUFFER: Limpia el buffer RESP1
+    LIMPIAR_BUFFER:
+        MOV BYTE PTR [RESP1 + SI], 0 ; Limpia el byte correspondiente en el buffer RESP1
+        INC SI                       ; Avanza al siguiente índice
+        CMP SI, 80                  ; Compara con el tamaño máximo del buffer (80 en este caso)
+        JL LIMPIAR_BUFFER           ; Si no ha llegado al final, repite
+        RET
+    
+    ; LIMPIAR_RANDOM_CADENA: Limpia la cadena RANDOM_CADENA
+    LIMPIAR_RANDOM_CADENA:
+        MOV BYTE PTR [RANDOM_CADENA + SI], 0 ; Limpia el byte correspondiente en RANDOM_CADENA
+        INC SI                              ; Avanza al siguiente índice
+        CMP SI, 80                           ; Compara con el tamaño máximo del buffer (80 en este caso)
+        JL LIMPIAR_RANDOM_CADENA            ; Si no ha llegado al final, repite
+        RET
+       
 END START
