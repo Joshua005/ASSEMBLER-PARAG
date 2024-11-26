@@ -3,17 +3,20 @@
 .DATA    
 
     ; DefiniciÃ³n de variables y mensajes
+    MAX_NIVEL DW 10 ; Número máximo de niveles permitido
     RESP1 DB 80 DUP (0) ; Espacio para la respuesta del usuario
     RANDOM_NUM DW 0 ; Variable para almacenar el numero aleatorio             
     RANDOM_CADENA DB 80 DUP(0) ; Espacio para almacenar la cadena generada
     LENG_LISTA DW 5 ; Longitud de la lista 
     ; Mensajes
+    
     SALTO_DL DB 13,10,'$' ; Salto de linea
     MENSAJE_NIVEL DB 'NIVEL ' 
     NIVEL DB '1', 0 
     ERROR DB 'PERDISTE', 13, 10, '$'  
-    MENSAJE_CONTINUAR DB ' *DESEAS CONTINUAR AL SIGUIENTE NIVEL? (S/N): $'       
+    MENSAJE_CONTINUAR DB ' *DESEAS VOLVER A JUGAR? (S/N): $'       
     MENSAJE_FELICIDADES DB 'FELICIDADES' , 13, 10, '$'
+    MENSAJE_GANASTE DB 'GANASTE' , 13, 10, '$'
     LLEGASTE_NV DB 'LLEGASTE AL NIVEL $'
     MENSAJE_RESPUESTA DB 'RESPUESTA CORRECTA: $'
     MENSAJE_USUARIO DB 'RESPUESTA INGRESADA: $' 
@@ -80,17 +83,20 @@ START:
         ; Si toda la secuencia es correcta
         CALL LIMPIAR_PANTALLA
         INC NIVEL                    ; Incrementa el contador de rondas 
+        MOV AX, LENG_LISTA                ; Cargar el nivel actual
+        MOV BX, MAX_NIVEL            ; Cargar el nivel máximo permitido
+        CMP AX, BX 
+                 ; ¿Se alcanzó el nivel máximo?
+        JE COMPLETADO
+        
         INC LENG_LISTA               ; Aumenta la longitud de la lista
         ADD PUNTUACION, 10           ; Aumenta puntos por nivel completado
     
         MOV AX, OFFSET MENSAJE_NIVEL
         CALL PUT_STR                 ; Muestra mensaje de exito
-        CALL PREGUNTAR_CONTINUAR     ; Pregunta si desea continuar
-    
-        CMP AL, 'N'                 ; Â¿El usuario desea salir? ('N' para salir)
-        JE FELICIDADES              ; Si si, termina el programa
+               
 
-        ; Si decide continuar
+        
         CALL CREAR_CADENA_ALEATORIA  ; Genera una nueva ronda
         MOV DX, OFFSET SALTO_DL
         CALL PUTS
@@ -356,51 +362,104 @@ START:
         
         MOV AX, 4C00H
         INT 21H ; Terminado, volver a DOS     
-                                  
+    COMPLETADO:
+        CALL LIMPIAR_PANTALLA
+        MOV DX, OFFSET MENSAJE_FELICIDADES
+        CALL PUTS
+        
+        MOV DX, OFFSET MENSAJE_GANASTE
+        CALL PUTS        
+        
+             
+        MOV DX, OFFSET MENSAJE_PUNTUACION
+        CALL PUTS
+        MOV AX, PUNTUACION
+        CALL MOSTRAR_DOS_DIGITOS   
+
+        MOV AX, 4C00H
+        INT 21H ; Finaliza el programa
+    
+    
+    REINICIO:
+        ; Limpia variables clave
+        MOV NIVEL, '1',O
+        MOV SI, 0                ; Reinicia índice de comparación
+        MOV BYTE PTR [RESP1], 0  ; Limpia la entrada del usuario
+        MOV BYTE PTR [RANDOM_CADENA], 0 ; Limpia la cadena generada
+        MOV CANT_ACIERTOS, 0     ; Reinicia el contador de aciertos
+
+        ; Muestra el nivel actual
+        CALL LIMPIAR_PANTALLA
+        MOV AX, OFFSET MENSAJE_NIVEL
+        CALL PUT_STR
+        MOV DX, OFFSET SALTO_DL
+        CALL PUTS
+
+        ; Generar nueva cadena aleatoria
+        CALL CREAR_CADENA_ALEATORIA
+        MOV AX, OFFSET RANDOM_CADENA
+        CALL PUT_STR
+        CALL DELAY_TEXT
+        CALL LIMPIAR_PANTALLA
+
+        ; Leer nueva respuesta del usuario
+        MOV AX, OFFSET RESP1
+        CALL GET_STR_TIMER
+
+        ; Comparar cadenas
+        CALL COMPARAR
+
+                                 
     END_PROGRAM: ; Termina el programa
         CALL LIMPIAR_PANTALLA
         MOV DX, OFFSET ERROR
         CALL PUTS
-        
+    
+        ; Muestra la respuesta correcta
         MOV DX, OFFSET MENSAJE_RESPUESTA
         CALL PUTS
-        
         MOV AX, OFFSET RANDOM_CADENA
         CALL PUT_STR
-        
         MOV DX, OFFSET SALTO_DL
         CALL PUTS
-          
+    
+        ; Muestra lo que ingresó el usuario
         MOV DX, OFFSET MENSAJE_USUARIO
         CALL PUTS        
-        
         MOV AX, OFFSET RESP1
         CALL PUT_STR
-          
         MOV DX, OFFSET SALTO_DL
         CALL PUTS   
-                           
+    
+        ; Muestra aciertos
         CALL ACIERTOS
         MOV DX, OFFSET MENSAJE_CANT_ACIERTOS
         CALL PUTS
         MOV AX, CANT_ACIERTOS
         CALL MOSTRAR_DOS_DIGITOS
         MOV DX, OFFSET SALTO_DL
-        CALL PUTS        
-               
+        CALL PUTS    
+    
+        ; Muestra nivel alcanzado
         MOV DX, OFFSET LLEGASTE_NV
         CALL PUTS        
         MOV AX, OFFSET NIVEL
         CALL PUT_STR
-             
+         
         MOV DX, OFFSET MENSAJE_PUNTUACION
         CALL PUTS
         MOV AX, PUNTUACION
         CALL MOSTRAR_DOS_DIGITOS 
-        
+        MOV DX, OFFSET SALTO_DL
+        CALL PUTS  
+    
+        ; Pregunta si desea continuar
+        CALL PREGUNTAR_CONTINUAR
+        CMP AL, 'S'
+        JE REINICIO  ; Si el usuario desea continuar, vuelve a REINICIO
+    
         MOV AX, 4C00H
-        INT 21H ; Terminado, volver a DOS 
-       
-  
-  
+        INT 21H ; Si no desea continuar, termina el programa
+
+   
 END START
