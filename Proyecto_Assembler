@@ -6,8 +6,7 @@
     RESP1 DB 80 DUP (0) ; Espacio para la respuesta del usuario
     RANDOM_NUM DW 0 ; Variable para almacenar el numero aleatorio             
     RANDOM_CADENA DB 80 DUP(0) ; Espacio para almacenar la cadena generada
-    LENG_LISTA DW 5 ; Longitud de la lista
-    
+    LENG_LISTA DW 5 ; Longitud de la lista 
     ; Mensajes
     SALTO_DL DB 13,10,'$' ; Salto de linea
     MENSAJE_NIVEL DB 'NIVEL ' 
@@ -50,7 +49,7 @@ START:
     
     ; Leer lo que ingresÃ³ el usuario
     MOV AX, OFFSET RESP1      
-    CALL GET_STR   
+    CALL GET_STR_TIMER   
                       
     ; Setea el contador de indices
     MOV SI, 0     
@@ -100,7 +99,7 @@ START:
         CALL DELAY_TEXT
         CALL LIMPIAR_PANTALLA
         MOV AX, OFFSET RESP1
-        CALL GET_STR
+        CALL GET_STR_TIMER
 
         CALL COMPARAR                ; Repetir el juego desde aqui
 
@@ -126,33 +125,58 @@ START:
         POP BX
         POP AX
         RET
-
-    GET_STR: ; Lee el string terminado por CR dentro del arreglo cuya direccion esta en AX
+    GET_STR_TIMER: ; Lee el string terminado por CR o timeout en 15 segundos
         PUSH AX ; Guarda registros
         PUSH BX
         PUSH CX
         PUSH DX
-        MOV BX, AX
-        CALL GETC ; Lee el primer caracter
-        MOV BYTE PTR [BX], AL ; En C: STR[I] = AL
 
-    GET_LOOP:
-        CMP AL, 13 ; AL == CR ?
-        JE GET_FIN ; Mientras AL != CR
-        INC BX ; BX = BX + 1
-        CALL GETC ; Lee el siguiente caracter
-        MOV BYTE PTR [BX], AL ; En C: STR[I] = AL      
+        ; Captura la hora inicial en ticks
+        MOV AH, 00h
+        INT 1Ah
+        MOV BX, DX ; Guarda los ticks iniciales en BX
+         MOV SI, 0
+    TIMER_LOOP:
+        ; Calcula el tiempo transcurrido
         
-        JMP GET_LOOP ; Repite la prueba del bucle
+        MOV AH, 00h
+        INT 1Ah
+        SUB DX, BX ; DX = Ticks transcurridos
+        CMP DX, 165 ; 15 segundos en ticks (~18.2 ticks/segundo)
+        JAE TIMEOUT ; Si el tiempo se agotó, termina el bucle
 
-    GET_FIN: 
-        MOV BYTE PTR [BX], 0 ; String terminado con 0
-        POP DX 
+        ; Verifica si hay entrada del teclado
+        MOV AH, 01h
+        INT 16h
+        ;JZ TIMER_LOOP ; Si no hay entrada, sigue verificando
+
+        ; Lee el carácter si hay entrada
+        ;MOV AH, 08h
+        ;INT 21h
+        CALL GETC
+        CMP AL, 13 ; ¿Es Enter (CR)?
+        JE GET_FIN_TIMER ; Si es Enter, termina
+
+        ; Guarda el carácter en el buffer
+        MOV [RESP1 + SI], AL ; Usa SI como índice para almacenar el carácter
+        INC SI               ; Avanza al siguiente índice del buffer
+        JMP TIMER_LOOP ; Sigue leyendo
+
+    TIMEOUT:
+        ; Si el tiempo se agotó, termina el string
+       
+        CALL END_PROGRAM
+
+    GET_FIN_TIMER:
+        MOV BYTE PTR [RESP1 + SI], 0 ; Termina la cadena con un NULL
+        POP DX
         POP CX
         POP BX
         POP AX
-        RET
-    
+        
+
+
+   
     PUTC: ; Exhibe caracter en AL
         PUSH AX ; Guarda AX
         PUSH BX ; Guarda BX
@@ -376,5 +400,7 @@ START:
         
         MOV AX, 4C00H
         INT 21H ; Terminado, volver a DOS 
-         
+       
+  
+  
 END START
